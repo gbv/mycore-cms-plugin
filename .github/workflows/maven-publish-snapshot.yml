@@ -21,11 +21,11 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: 'sonatype-central'
+          server-id: 'central'
           server-username: SONATYPE_USERNAME
           server-password: SONATYPE_TOKEN
       - name: Publish SNAPSHOT to sonatype-central with Apache Maven
         env:
           SONATYPE_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           SONATYPE_TOKEN:  ${{ secrets.OSSRH_TOKEN }}
-        run: mvn --batch-mode deploy -P deploy-to-sonatype
+        run: mvn --batch-mode deploy
