@@ -75,6 +75,32 @@ public class CMSPageResource {
     }
 
     /**
+     * GET /pages/_permissions?slug={slug} - Get permissions for a slug
+     */
+    @GET
+    @Path("_permissions")
+    @MCRRequireTransaction
+    public Response getPermissions(@QueryParam("slug") String slug) {
+        if (slug == null || slug.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity("{\"error\": \"slug is required\"}")
+                .build();
+        }
+
+        boolean slugExists = pageService.slugExists(slug);
+        boolean canWrite = permissionService.canWriteSlug(slug);
+        boolean canReadDraft = permissionService.canReadDraftSlug(slug);
+        boolean canReadArchived = permissionService.canReadArchivedSlug(slug);
+        boolean canDelete = permissionService.canDeleteSlug(slug);
+
+        String json = String.format(
+            "{\"slug_exists\": %b, \"write\": %b, \"read_draft\": %b, \"read_archived\": %b, \"delete\": %b}",
+            slugExists, canWrite, canReadDraft, canReadArchived, canDelete);
+
+        return Response.ok(json).build();
+    }
+
+    /**
      * GET /pages/{pageId} - Get page with all versions
      */
     @GET

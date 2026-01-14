@@ -85,6 +85,17 @@ public class CMSPageService {
     }
 
     /**
+     * Check if a page with the given slug exists.
+     */
+    public boolean slugExists(String slug) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+        TypedQuery<Long> query = em.createQuery(
+            "SELECT COUNT(p) FROM CMSPage p WHERE p.slug = :slug", Long.class);
+        query.setParameter("slug", slug);
+        return query.getSingleResult() > 0;
+    }
+
+    /**
      * Get a page by ID with all versions.
      */
     public Optional<CMSPageDetailDTO> getPageById(Long pageId) {

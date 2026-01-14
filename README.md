@@ -68,6 +68,7 @@ Base URL: `/api/cms/v1`
 |---------|------------------------------------------------|-------------------------------------------|
 | GET     | `/pages`                                       | Alle Seiten auflisten                     |
 | GET     | `/pages?slug={slug}`                           | Seite nach Slug suchen                    |
+| GET     | `/pages/_permissions?slug={slug}`              | Berechtigungen für einen Slug abfragen    |
 | GET     | `/pages/{pageId}`                              | Eine Seite mit allen Versionen            |
 | POST    | `/pages`                                       | Neue Seite erstellen                      |
 | DELETE  | `/pages/{pageId}`                              | Seite löschen (auf archived setzen)       |
@@ -189,6 +190,27 @@ Base URL: `/api/cms/v1`
   "content": "Willkommen..."
 }
 ```
+
+#### GET `/pages/_permissions?slug={slug}`
+Gibt die Berechtigungen des aktuellen Benutzers für einen Slug zurück.
+
+```json
+{
+  "slug_exists": false,
+  "write": true,
+  "read_draft": true,
+  "read_archived": false,
+  "delete": false
+}
+```
+
+| Feld            | Beschreibung                                      |
+|-----------------|---------------------------------------------------|
+| `slug_exists`   | Ob eine Seite mit diesem Slug bereits existiert   |
+| `write`         | Kann Seite erstellen oder neue Versionen anlegen  |
+| `read_draft`    | Kann Draft-Versionen lesen                        |
+| `read_archived` | Kann archivierte Versionen lesen                  |
+| `delete`        | Kann die Seite archivieren                        |
 
 #### POST `/pages/{pageId}/versions`
 Erstellt eine neue Version mit Übersetzungen:

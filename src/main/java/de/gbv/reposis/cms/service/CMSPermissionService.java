@@ -44,6 +44,7 @@ public class CMSPermissionService {
     private static final String PERMISSION_ASSETS_WRITE = "write";
     private static final String PERMISSION_ASSETS_DELETE = "delete";
     private static final String PERMISSION_ASSETS_ID_PREFIX = "cms:asset:";
+    public static final String CMS_PAGE_PERMISSION_PREFIX = "cms:page:";
 
     /**
      * Check if the current user has a specific permission on a page.
@@ -178,6 +179,50 @@ public class CMSPermissionService {
     public boolean canDeleteAsset(String assetId) {
         String permissionId = PERMISSION_ASSETS_ID_PREFIX + assetId;
         return MCRAccessManager.checkPermission(permissionId, PERMISSION_ASSETS_DELETE);
+    }
+
+    /**
+     * Check if the current user has write permission for a slug.
+     *
+     * @param slug the slug to check
+     * @return true if the user can write to the page
+     */
+    public boolean canWriteSlug(String slug) {
+        String permissionId = CMS_PAGE_PERMISSION_PREFIX + slug;
+        return MCRAccessManager.checkPermission(permissionId, PERMISSION_PAGE_WRITE);
+    }
+
+    /**
+     * Check if the current user has read-draft permission for a slug.
+     *
+     * @param slug the slug to check
+     * @return true if the user can read drafts
+     */
+    public boolean canReadDraftSlug(String slug) {
+        String permissionId = CMS_PAGE_PERMISSION_PREFIX + slug;
+        return MCRAccessManager.checkPermission(permissionId, PERMISSION_PAGE_READ_DRAFT);
+    }
+
+    /**
+     * Check if the current user has read-archived permission for a slug.
+     *
+     * @param slug the slug to check
+     * @return true if the user can read archived versions
+     */
+    public boolean canReadArchivedSlug(String slug) {
+        String permissionId = CMS_PAGE_PERMISSION_PREFIX + slug;
+        return MCRAccessManager.checkPermission(permissionId, PERMISSION_PAGE_READ_ARCHIVED);
+    }
+
+    /**
+     * Check if the current user has delete permission for a slug.
+     *
+     * @param slug the slug to check
+     * @return true if the user can delete the page
+     */
+    public boolean canDeleteSlug(String slug) {
+        String permissionId = CMS_PAGE_PERMISSION_PREFIX + slug;
+        return MCRAccessManager.checkPermission(permissionId, PERMISSION_PAGE_DELETE);
     }
 
 }

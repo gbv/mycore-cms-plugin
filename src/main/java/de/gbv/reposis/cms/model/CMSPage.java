@@ -18,6 +18,8 @@
 
 package de.gbv.reposis.cms.model;
 
+import static de.gbv.reposis.cms.service.CMSPermissionService.CMS_PAGE_PERMISSION_PREFIX;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,6 +118,6 @@ public class CMSPage {
      * Format: page:{slug}
      */
     public String getPermissionId() {
-        return "cms:page:" + slug;
+        return CMS_PAGE_PERMISSION_PREFIX + slug;
     }
 }
