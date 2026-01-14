@@ -19,6 +19,7 @@
 package de.gbv.reposis.cms.resource;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.mycore.common.MCRSessionMgr;
@@ -93,7 +94,7 @@ public class CMSPageResource {
         boolean canReadArchived = permissionService.canReadArchivedSlug(slug);
         boolean canDelete = permissionService.canDeleteSlug(slug);
 
-        String json = String.format(
+        String json = String.format(Locale.ROOT,
             "{\"slug_exists\": %b, \"write\": %b, \"read_draft\": %b, \"read_archived\": %b, \"delete\": %b}",
             slugExists, canWrite, canReadDraft, canReadArchived, canDelete);
 
