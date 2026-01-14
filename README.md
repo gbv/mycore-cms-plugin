@@ -1,5 +1,18 @@
 # mycore-cms-plugin
 
+Ein Content-Management-System (CMS) Plugin für MyCoRe-Anwendungen. Ermöglicht die Verwaltung von Seiten mit Versionierung, mehrsprachigen Übersetzungen und einem flexiblen Berechtigungssystem.
+
+## Features
+
+- **Seitenverwaltung** mit URL-Slugs
+- **Versionierung** - Alle Änderungen werden als unveränderliche Versionen gespeichert
+- **Mehrsprachigkeit** - Jede Version kann Übersetzungen in beliebigen Sprachen enthalten
+- **Workflow-Status** - Draft, Published, Archived
+- **Asset-Verwaltung** - Dateien und Verzeichnisse für CMS-Inhalte
+- **Feingranulare Berechtigungen** - Integration mit dem MyCoRe Permission-System
+
+---
+
 ## Schema
 
 ### Page
@@ -254,57 +267,82 @@ public static boolean checkPermission(String id, String permission)
 
 #### Pages
 ```
-page:{slug}
+cms:page:{slug}
 ```
 
-Beispiel: `page:/about`, `page:/news/2026`
+Beispiel: `cms:page:/about`, `cms:page:/news/2026`
 
 ### Permissions
 
 #### Pages
 
-| Permission       | Beschreibung                                      |
-|------------------|---------------------------------------------------|
-| `read`           | Kann die Seite lesen (nur wenn `published`)       |
-| `write`          | Kann neue Versionen erstellen                     |
-| `delete`         | Kann die Seite auf `archived` setzen              |
-| `read-draft`     | Kann die Seite auch als `draft` lesen             |
-| `read-archived`  | Kann die Seite auch als `archived` lesen          |
-| `read-versions`  | Kann alle Versionen der Seite sehen               |
+| Permission       | Beschreibung                                              |
+|------------------|-----------------------------------------------------------|
+| `read`           | Grundrecht zum Lesen einer Seite                          |
+| `write`          | Kann neue Versionen erstellen                             |
+| `delete`         | Kann die Seite auf `archived` setzen                      |
+| `read-draft`     | Kann Draft-Versionen lesen                                |
+| `read-archived`  | Kann archivierte Versionen und archivierte Seiten lesen   |
+| `read-versions`  | Kann alle Versionen der Seite sehen                       |
+
+### Sichtbarkeit von Seiten
+
+Die Sichtbarkeit einer Seite hängt von der **letzten non-draft Version** ab:
+
+| Letzte non-draft Version | Benötigte Permission für Seitenzugriff |
+|--------------------------|----------------------------------------|
+| `published`              | `read`                                 |
+| `archived`               | `read` + `read-archived`               |
+| Keine (nur Drafts)       | `read` + `read-draft`                  |
+
+### Sichtbarkeit von Versionen
+
+Zusätzlich zur Seitensichtbarkeit wird pro Version geprüft:
+
+| Versions-Status | Benötigte Permission |
+|-----------------|----------------------|
+| `published`     | `read`               |
+| `draft`         | `read-draft`         |
+| `archived`      | `read-archived`      |
 
 #### Assets
 
+Permission-ID Format: `cms:asset:{path}`
+
 | Permission           | Beschreibung                                  |
 |----------------------|-----------------------------------------------|
-| `cms-assets-read`    | Kann Assets auflisten und herunterladen       |
-| `cms-assets-write`   | Kann Assets hochladen, erstellen, verschieben |
-| `cms-assets-delete`  | Kann Assets löschen                           |
+| `read`               | Kann Assets auflisten und herunterladen       |
+| `write`              | Kann Assets hochladen, erstellen, verschieben |
+| `delete`             | Kann Assets löschen                           |
 
 ### API-Endpoint Berechtigungen
 
 #### Pages
 
-| Endpoint                                    | Benötigte Permission              | Filterung         |
-|---------------------------------------------|-----------------------------------|-------------------|
-| `GET /pages`                                | `read`                            | Liste filtern     |
-| `GET /pages/{id}`                           | `read`                            | 403 wenn verweigert |
-| `GET /pages/{id}/versions`                  | `read` + `read-versions`          | 403 wenn verweigert |
-| `GET /pages/{id}/versions/{v}`              | `read` (+ `read-draft` wenn Draft, + `read-archived` wenn Archived)| 403 wenn verweigert |
-| `GET /pages/{id}/versions/current`          | `read` (+ `read-draft` wenn Draft, + `read-archived` wenn Archived)| 403 wenn verweigert |
-| `GET /pages/{id}/versions/published`        | `read`                            | 403 wenn verweigert |
-| `POST /pages/{id}/versions`                 | `write`                           | 403 wenn verweigert |
-| `DELETE /pages/{id}`                        | `delete`                          | 403 wenn verweigert |
+> **Hinweis:** Bei allen Seiten-Endpoints wird zuerst die Seitensichtbarkeit geprüft 
+> (basierend auf der letzten non-draft Version), dann die Berechtigung für einzelne Versionen.
+
+| Endpoint                                    | Benötigte Permission                          | Verhalten         |
+|---------------------------------------------|-----------------------------------------------|-------------------|
+| `GET /pages`                                | Seitensichtbarkeit                            | Liste filtern     |
+| `GET /pages/{id}`                           | Seitensichtbarkeit                            | 403 wenn verweigert |
+| `GET /pages/{id}/versions`                  | Seitensichtbarkeit + `read-versions`          | 403 wenn verweigert, Versionen gefiltert |
+| `GET /pages/{id}/versions/{v}`              | Seitensichtbarkeit + Versionsberechtigung     | 403 wenn verweigert |
+| `GET /pages/{id}/versions/current`          | Seitensichtbarkeit + Versionsberechtigung     | 403 wenn verweigert |
+| `GET /pages/{id}/versions/published`        | Seitensichtbarkeit                            | 404 wenn keine published |
+| `POST /pages/{id}/versions`                 | `write`                                       | 403 wenn verweigert |
+| `DELETE /pages/{id}`                        | `delete`                                      | 403 wenn verweigert |
 
 #### Assets
 
 | Endpoint                                    | Benötigte Permission      |
 |---------------------------------------------|---------------------------|
-| `GET /assets`                               | `cms-assets-read`         |
-| `GET /assets/{path}`                        | `cms-assets-read`         |
-| `GET /assets/_config`                       | `cms-assets-read`         |
-| `POST /assets/{path}`                       | `cms-assets-write`        |
-| `PUT /assets/{path}`                        | `cms-assets-write`        |
-| `DELETE /assets/{path}`                     | `cms-assets-delete`       |
+| `GET /assets`                               | `read`                    |
+| `GET /assets/{path}`                        | `read`                    |
+| `GET /assets/_config`                       | `read`                    |
+| `POST /assets/{path}`                       | `write`                   |
+| `PUT /assets/{path}`                        | `write`                   |
+| `DELETE /assets/{path}`                     | `delete`                  |
 
 ---
 
@@ -321,9 +359,12 @@ Beispiel: `page:/about`, `page:/news/2026`
 | `archived`  | Seite wurde offline genommen     |
 
 ### Anzeige
-- Höchste Version mit `status='published'` wird angezeigt
-- Falls keine `published` existiert oder höchste Version ist `archived` → **404**
-- Wenn eingeloggt und "Vorschau" aktiviert → höchste `draft` Version anzeigen
+- Die Sichtbarkeit hängt von der letzten non-draft Version ab:
+  - Wenn `published` → Seite wird angezeigt (mit `read` Recht)
+  - Wenn `archived` → Seite nur mit `read-archived` sichtbar, sonst **404**
+  - Wenn nur Drafts existieren → Seite nur mit `read-draft` sichtbar, sonst **404**
+- Draft-Versionen werden nur mit `read-draft` Recht angezeigt
+- Archived-Versionen werden nur mit `read-archived` Recht angezeigt
 
 ### Editor
 - Höchste Version (egal welcher Status) wird geladen
