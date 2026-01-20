@@ -27,10 +27,12 @@ import org.mycore.common.MCRSessionMgr;
 
 import de.gbv.reposis.cms.dto.CMSCreateVersionDTO;
 import de.gbv.reposis.cms.dto.CMSPageDetailDTO;
+import de.gbv.reposis.cms.dto.CMSPageExportDTO;
 import de.gbv.reposis.cms.dto.CMSPageListDTO;
 import de.gbv.reposis.cms.dto.CMSTranslationDTO;
 import de.gbv.reposis.cms.dto.CMSTranslationDetailDTO;
 import de.gbv.reposis.cms.dto.CMSVersionDetailDTO;
+import de.gbv.reposis.cms.dto.CMSVersionExportDTO;
 import de.gbv.reposis.cms.dto.CMSVersionInfoDTO;
 import de.gbv.reposis.cms.dto.CMSVersionSummaryDTO;
 import de.gbv.reposis.cms.model.CMSLanguage;
@@ -392,6 +394,154 @@ public class CMSPageService {
         dto.setLanguage(translation.getLanguage().getCode());
         dto.setTitle(translation.getTitle());
         dto.setContent(translation.getContent());
+        return dto;
+    }
+
+    /**
+     * Get all pages with slugs starting with the given prefix.
+     */
+    public List<CMSPageExportDTO> getPagesBySlugPrefix(String slugPrefix) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+        TypedQuery<CMSPage> query = em.createQuery(
+            "SELECT p FROM CMSPage p WHERE p.slug LIKE :prefix ORDER BY p.slug", CMSPage.class);
+        query.setParameter("prefix", slugPrefix + "%");
+        return query.getResultList().stream()
+            .map(this::toPageExportDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Permanently delete all pages with slugs starting with the given prefix.
+     * This removes the pages completely from the database, not just archiving them.
+     */
+    public int deletePagesBySlugPrefix(String slugPrefix) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+        TypedQuery<CMSPage> query = em.createQuery(
+            "SELECT p FROM CMSPage p WHERE p.slug LIKE :prefix", CMSPage.class);
+        query.setParameter("prefix", slugPrefix + "%");
+        List<CMSPage> pages = query.getResultList();
+        int count = pages.size();
+        for (CMSPage page : pages) {
+            em.remove(page);
+        }
+        return count;
+    }
+
+    /**
+     * Import a page from an export DTO.
+     * Creates a new page with all versions and translations.
+     */
+    public CMSPage importPage(CMSPageExportDTO exportDTO) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+
+        CMSPage page = new CMSPage(exportDTO.getSlug());
+        if (exportDTO.getCreatedAt() != null) {
+            page.setCreatedAt(exportDTO.getCreatedAt());
+        }
+        if (exportDTO.getUpdatedAt() != null) {
+            page.setUpdatedAt(exportDTO.getUpdatedAt());
+        }
+        em.persist(page);
+
+        importVersions(em, page, exportDTO.getVersions());
+
+        em.flush();
+        return page;
+    }
+
+    /**
+     * Import a page from an export DTO, replacing an existing page with the same slug if it exists.
+     * @return true if an existing page was replaced, false if a new page was created
+     */
+    public boolean importPageWithReplace(CMSPageExportDTO exportDTO) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+
+        // Check if page with same slug already exists
+        TypedQuery<CMSPage> query = em.createQuery(
+            "SELECT p FROM CMSPage p WHERE p.slug = :slug", CMSPage.class);
+        query.setParameter("slug", exportDTO.getSlug());
+
+        boolean replaced = false;
+        CMSPage page;
+        try {
+            page = query.getSingleResult();
+            // Delete existing page completely
+            em.remove(page);
+            em.flush();
+            replaced = true;
+        } catch (NoResultException e) {
+            // Page doesn't exist, will create new one
+        }
+
+        // Create new page
+        page = new CMSPage(exportDTO.getSlug());
+        if (exportDTO.getCreatedAt() != null) {
+            page.setCreatedAt(exportDTO.getCreatedAt());
+        }
+        if (exportDTO.getUpdatedAt() != null) {
+            page.setUpdatedAt(exportDTO.getUpdatedAt());
+        }
+        em.persist(page);
+
+        importVersions(em, page, exportDTO.getVersions());
+
+        em.flush();
+        return replaced;
+    }
+
+    private void importVersions(EntityManager em, CMSPage page, List<CMSVersionExportDTO> versions) {
+        if (versions != null) {
+            for (CMSVersionExportDTO versionDTO : versions) {
+                CMSPageStatus status = CMSPageStatus.fromValue(versionDTO.getStatus());
+                CMSPageVersion version = new CMSPageVersion(
+                    page, versionDTO.getVersionNumber(), versionDTO.getCreatedBy(), status);
+                version.setComment(versionDTO.getComment());
+                if (versionDTO.getCreatedAt() != null) {
+                    version.setCreatedAt(versionDTO.getCreatedAt());
+                }
+
+                if (versionDTO.getTranslations() != null) {
+                    for (CMSTranslationDTO translationDTO : versionDTO.getTranslations()) {
+                        CMSLanguage language = getOrCreateLanguage(em, translationDTO.getLanguage());
+                        CMSPageVersionTranslation translation = new CMSPageVersionTranslation(
+                            version, language, translationDTO.getTitle(), translationDTO.getContent());
+                        version.addTranslation(translation);
+                    }
+                }
+
+                page.addVersion(version);
+                em.persist(version);
+            }
+        }
+    }
+
+    private CMSPageExportDTO toPageExportDTO(CMSPage page) {
+        EntityManager em = MCREntityManagerProvider.getCurrentEntityManager();
+        CMSPageExportDTO dto = new CMSPageExportDTO();
+        dto.setSlug(page.getSlug());
+        dto.setCreatedAt(page.getCreatedAt());
+        dto.setUpdatedAt(page.getUpdatedAt());
+
+        List<CMSPageVersion> versions = getVersionEntities(em, page.getId());
+        dto.setVersions(versions.stream()
+            .map(this::toVersionExportDTO)
+            .collect(Collectors.toList()));
+        return dto;
+    }
+
+    private CMSVersionExportDTO toVersionExportDTO(CMSPageVersion version) {
+        CMSVersionExportDTO dto = new CMSVersionExportDTO();
+        dto.setVersionNumber(version.getVersionNumber());
+        dto.setStatus(version.getStatus().getValue());
+        dto.setComment(version.getComment());
+        dto.setCreatedAt(version.getCreatedAt());
+        dto.setCreatedBy(version.getCreatedBy());
+        dto.setTranslations(version.getTranslations().stream()
+            .map(t -> new CMSTranslationDTO(
+                t.getLanguage().getCode(),
+                t.getTitle(),
+                t.getContent()))
+            .collect(Collectors.toList()));
         return dto;
     }
 }
