@@ -8,9 +8,9 @@
   </parent>
   <groupId>de.gbv.reposis</groupId>
   <artifactId>cms-module</artifactId>
-  <version>2024.06-SNAPSHOT</version>
+  <version>2025.06-SNAPSHOT</version>
   <properties>
-    <mycore.version>2024.06.3-SNAPSHOT</mycore.version>
+    <mycore.version>2025.06.2-SNAPSHOT</mycore.version>
   </properties>
   <build>
     <plugins>
